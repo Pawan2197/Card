@@ -366,55 +366,89 @@ function Scene() {
   )
 }
 
-// Audio Manager Component - Plays Stranger Things theme
-function AudioManager({ isPlaying }) {
-  const themeAudioRef = useRef(null)
-  const retryHandlersRef = useRef(null)
+// Global Audio - Plays Stranger Things theme continuously from start
+// This audio starts immediately and doesn't restart when transitioning pages
+// Global Audio - Plays Stranger Things theme continuously from start
+const globalAudioRef = { current: null }
 
-  useEffect(() => {
-    // Create audio on mount - use Stranger Things theme
-    if (!themeAudioRef.current) {
-      themeAudioRef.current = new Audio('/sounds/stranger-things-124008.mp3')
-      themeAudioRef.current.volume = 0.6
-      themeAudioRef.current.loop = true
+function useGlobalAudio() {
+  // We don't auto-init anymore - we wait for explicit start
+  const startAudio = useCallback(() => {
+    if (!globalAudioRef.current) {
+      globalAudioRef.current = new Audio('/sounds/stranger-things-124008.mp3')
+      globalAudioRef.current.volume = 0.6
+      globalAudioRef.current.loop = true
     }
+    // This is guaranteed to work because it's called from a click handler
+    globalAudioRef.current.play().catch(e => console.log("Audio play failed", e))
+  }, [])
 
-    if (isPlaying) {
-      // Try to play immediately
-      themeAudioRef.current.play().catch(() => {
-        // If blocked by browser, add listeners to retry on first interaction
-        const retryPlay = () => {
-          themeAudioRef.current?.play()
-          document.removeEventListener('click', retryPlay)
-          document.removeEventListener('touchstart', retryPlay)
-          document.removeEventListener('keydown', retryPlay)
-        }
-        retryHandlersRef.current = retryPlay
-        document.addEventListener('click', retryPlay)
-        document.addEventListener('touchstart', retryPlay)
-        document.addEventListener('keydown', retryPlay)
-      })
-    } else {
-      themeAudioRef.current.pause()
-      // Clean up retry handlers if sound is disabled
-      if (retryHandlersRef.current) {
-        document.removeEventListener('click', retryHandlersRef.current)
-        document.removeEventListener('touchstart', retryHandlersRef.current)
-        document.removeEventListener('keydown', retryHandlersRef.current)
+  const toggleAudio = useCallback(() => {
+    if (globalAudioRef.current) {
+      if (globalAudioRef.current.paused) {
+        globalAudioRef.current.play()
+      } else {
+        globalAudioRef.current.pause()
       }
     }
-  }, [isPlaying])
+  }, [])
 
-  return null
+  const isPlaying = () => {
+    return globalAudioRef.current && !globalAudioRef.current.paused
+  }
+
+  return { startAudio, toggleAudio, isPlaying }
+}
+
+// Welcome Screen Component
+function WelcomeScreen({ onStart }) {
+  return (
+    <div className="welcome-screen" onClick={onStart}>
+      <div className="welcome-content">
+        <h1 className="welcome-title">THE UPSIDE DOWN</h1>
+        <p className="welcome-subtitle">Awaits...</p>
+        <button className="enter-button">
+          ENTER EXPERIENCE
+        </button>
+        <p className="headphones-hint">🎧 Use Headphones for Best Experience</p>
+      </div>
+    </div>
+  )
 }
 
 function App() {
-  const [showIntro, setShowIntro] = useState(true) // Show Stranger Things intro first
-  const [audioEnabled, setAudioEnabled] = useState(true) // Sound OFF by default - user clicks to enable
+  const [hasStarted, setHasStarted] = useState(false) // Gate the experience
+  const [showIntro, setShowIntro] = useState(true)
+  const [audioEnabled, setAudioEnabled] = useState(true)
+
+  const { startAudio } = useGlobalAudio()
+
+  const handleStart = () => {
+    startAudio()
+    setHasStarted(true)
+  }
 
   const handleIntroComplete = useCallback(() => {
     setShowIntro(false)
+    // Audio continues playing - no restart!
   }, [])
+
+  const handleToggleAudio = useCallback(() => {
+    if (globalAudioRef.current) {
+      if (globalAudioRef.current.paused) {
+        globalAudioRef.current.play()
+        setAudioEnabled(true)
+      } else {
+        globalAudioRef.current.pause()
+        setAudioEnabled(false)
+      }
+    }
+  }, [])
+
+  // Show Welcome Screen first
+  if (!hasStarted) {
+    return <WelcomeScreen onStart={handleStart} />
+  }
 
   // Stranger Things intro
   if (showIntro) {
@@ -434,16 +468,13 @@ function App() {
         </Suspense>
       </Canvas>
 
-      {/* Audio Manager - tries to auto-play, will play on first click if blocked */}
-      <AudioManager isPlaying={audioEnabled} />
-
       {/* HTML Overlay for text */}
       <HtmlOverlay />
 
       {/* Sound Toggle - ON/OFF button */}
       <button
         className={`sound-toggle ${audioEnabled ? 'active' : ''}`}
-        onClick={() => setAudioEnabled(!audioEnabled)}
+        onClick={handleToggleAudio}
       >
         {audioEnabled ? '🔊' : '🔇'}
       </button>

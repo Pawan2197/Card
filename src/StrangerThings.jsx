@@ -188,18 +188,36 @@ function Portal({ active }) {
     )
 }
 
-// Audio Component - Plays Stranger Things Theme
-function IntroAudio({ isPlaying, onComplete }) {
+// Audio Component - Plays Stranger Things Theme with autoplay retry
+function IntroAudio({ isPlaying }) {
     const audioRef = useRef(null)
+    const retryRef = useRef(null)
 
     useEffect(() => {
         if (isPlaying) {
-            // Play actual Stranger Things theme
+            // Create audio element
             if (!audioRef.current) {
                 audioRef.current = new Audio('/sounds/stranger-things-124008.mp3')
                 audioRef.current.volume = 0.7
             }
-            audioRef.current.play().catch(e => console.log('Audio play failed:', e))
+
+            // Try to play immediately
+            const playAudio = () => {
+                audioRef.current?.play().catch(() => {
+                    // Browser blocked autoplay, retry on first interaction
+                    if (!retryRef.current) {
+                        retryRef.current = () => {
+                            audioRef.current?.play()
+                            document.removeEventListener('click', retryRef.current)
+                            document.removeEventListener('touchstart', retryRef.current)
+                        }
+                        document.addEventListener('click', retryRef.current)
+                        document.addEventListener('touchstart', retryRef.current)
+                    }
+                })
+            }
+
+            playAudio()
         }
 
         return () => {
@@ -207,29 +225,86 @@ function IntroAudio({ isPlaying, onComplete }) {
                 audioRef.current.pause()
                 audioRef.current.currentTime = 0
             }
+            if (retryRef.current) {
+                document.removeEventListener('click', retryRef.current)
+                document.removeEventListener('touchstart', retryRef.current)
+            }
         }
     }, [isPlaying])
 
-    // Stop audio when intro completes
-    useEffect(() => {
-        return () => {
-            if (audioRef.current) {
-                // Fade out
-                const fadeOut = setInterval(() => {
-                    if (audioRef.current && audioRef.current.volume > 0.1) {
-                        audioRef.current.volume -= 0.1
-                    } else {
-                        clearInterval(fadeOut)
-                        if (audioRef.current) {
-                            audioRef.current.pause()
-                        }
-                    }
-                }, 100)
-            }
-        }
-    }, [])
-
     return null
+}
+
+// Realistic Lightning Bolt SVG Component
+function LightningBolt({ x, delay }) {
+    // Generate random jagged path
+    const generatePath = () => {
+        const segments = 8 + Math.floor(Math.random() * 4)
+        let path = `M ${x} 0`
+        let currentX = x
+        let currentY = 0
+        const segmentHeight = 100 / segments
+
+        for (let i = 0; i < segments; i++) {
+            const newY = (i + 1) * segmentHeight
+            const offsetX = (Math.random() - 0.5) * 30 // Random horizontal offset
+            currentX += offsetX
+
+            // Add a slight curve to make it more realistic
+            const midY = currentY + segmentHeight / 2
+            const midX = currentX + (Math.random() - 0.5) * 15
+
+            path += ` L ${midX} ${midY} L ${currentX} ${newY}`
+            currentY = newY
+        }
+
+        return path
+    }
+
+    const pathData = generatePath()
+
+    return (
+        <svg
+            className="lightning-svg"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{
+                position: 'absolute',
+                left: `${x - 50}%`,
+                top: 0,
+                width: '100px',
+                height: '100%',
+                animationDelay: `${delay}ms`
+            }}
+        >
+            <defs>
+                <filter id="glow">
+                    <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                    <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+            </defs>
+            {/* Main bolt */}
+            <path
+                d={pathData}
+                stroke="#ff3333"
+                strokeWidth="3"
+                fill="none"
+                filter="url(#glow)"
+                className="bolt-path"
+            />
+            {/* Bright core */}
+            <path
+                d={pathData}
+                stroke="#ffffff"
+                strokeWidth="1.5"
+                fill="none"
+                className="bolt-path"
+            />
+        </svg>
+    )
 }
 
 // Main Intro Component  
@@ -331,8 +406,7 @@ function StrangerThingsIntro({ onComplete }) {
 
     return (
         <div className="stranger-things-container">
-            {/* Audio */}
-            <IntroAudio isPlaying={audioStarted} />
+            {/* Audio is now managed globally in App.jsx - plays continuously */}
 
             {/* Background */}
             <div className="upside-down-bg" />
@@ -347,12 +421,12 @@ function StrangerThingsIntro({ onComplete }) {
                 transition={{ duration: 0.1 }}
             />
 
-            {/* Lightning Bolt Lines */}
+            {/* Lightning Bolt Lines - Realistic jagged SVG */}
             {lightningActive && (
                 <div className="lightning-bolts">
-                    <div className="lightning-bolt bolt-1" key={`bolt1-${Date.now()}`}></div>
-                    <div className="lightning-bolt bolt-2" key={`bolt2-${Date.now()}`}></div>
-                    <div className="lightning-bolt bolt-3" key={`bolt3-${Date.now()}`}></div>
+                    <LightningBolt x={20} delay={0} />
+                    <LightningBolt x={50} delay={30} />
+                    <LightningBolt x={75} delay={60} />
                 </div>
             )}
 
