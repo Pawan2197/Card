@@ -138,8 +138,10 @@ function TitleSequence({ show, phase }) {
 // Countdown Component
 function Countdown({ count, show }) {
     const messages = {
-        3: "Opening the gate...",
-        2: "The darkness awaits...",
+        5: "The gate is opening...",
+        4: "Prepare yourself...",
+        3: "The darkness fades...",
+        2: "Light approaches...",
         1: "Welcome to 2026!",
         0: "HAPPY NEW YEAR!"
     }
@@ -186,81 +188,46 @@ function Portal({ active }) {
     )
 }
 
-// Audio Component
-function IntroAudio({ isPlaying }) {
+// Audio Component - Plays Stranger Things Theme
+function IntroAudio({ isPlaying, onComplete }) {
     const audioRef = useRef(null)
 
     useEffect(() => {
-        // Create eerie synth sound using Web Audio API
         if (isPlaying) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext
-            const audioContext = new AudioContext()
-
-            // Create eerie drone sound
-            const createDrone = (freq, startTime, duration) => {
-                const oscillator = audioContext.createOscillator()
-                const gainNode = audioContext.createGain()
-                const filter = audioContext.createBiquadFilter()
-
-                oscillator.connect(filter)
-                filter.connect(gainNode)
-                gainNode.connect(audioContext.destination)
-
-                oscillator.type = 'sawtooth'
-                oscillator.frequency.setValueAtTime(freq, startTime)
-                oscillator.frequency.exponentialRampToValueAtTime(freq * 1.02, startTime + duration)
-
-                filter.type = 'lowpass'
-                filter.frequency.setValueAtTime(400, startTime)
-
-                gainNode.gain.setValueAtTime(0, startTime)
-                gainNode.gain.linearRampToValueAtTime(0.08, startTime + 0.5)
-                gainNode.gain.linearRampToValueAtTime(0.06, startTime + duration - 0.5)
-                gainNode.gain.linearRampToValueAtTime(0, startTime + duration)
-
-                oscillator.start(startTime)
-                oscillator.stop(startTime + duration)
+            // Play actual Stranger Things theme
+            if (!audioRef.current) {
+                audioRef.current = new Audio('/sounds/stranger-things-124008.mp3')
+                audioRef.current.volume = 0.7
             }
+            audioRef.current.play().catch(e => console.log('Audio play failed:', e))
+        }
 
-            // Create arpeggio
-            const createArpeggio = (baseFreq, startTime) => {
-                const notes = [1, 1.25, 1.5, 2]
-                notes.forEach((mult, i) => {
-                    const osc = audioContext.createOscillator()
-                    const gain = audioContext.createGain()
-
-                    osc.connect(gain)
-                    gain.connect(audioContext.destination)
-
-                    osc.type = 'sine'
-                    osc.frequency.value = baseFreq * mult
-
-                    const noteStart = startTime + i * 0.3
-                    gain.gain.setValueAtTime(0, noteStart)
-                    gain.gain.linearRampToValueAtTime(0.1, noteStart + 0.05)
-                    gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.8)
-
-                    osc.start(noteStart)
-                    osc.stop(noteStart + 1)
-                })
-            }
-
-            const now = audioContext.currentTime
-
-            // Play eerie intro
-            createDrone(55, now, 8)
-            createDrone(82.5, now + 0.5, 7.5)
-            createArpeggio(220, now + 1)
-            createArpeggio(165, now + 3)
-            createArpeggio(220, now + 5)
-
-            audioRef.current = audioContext
-
-            return () => {
-                audioContext.close()
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current.currentTime = 0
             }
         }
     }, [isPlaying])
+
+    // Stop audio when intro completes
+    useEffect(() => {
+        return () => {
+            if (audioRef.current) {
+                // Fade out
+                const fadeOut = setInterval(() => {
+                    if (audioRef.current && audioRef.current.volume > 0.1) {
+                        audioRef.current.volume -= 0.1
+                    } else {
+                        clearInterval(fadeOut)
+                        if (audioRef.current) {
+                            audioRef.current.pause()
+                        }
+                    }
+                }, 100)
+            }
+        }
+    }, [])
 
     return null
 }
@@ -300,27 +267,27 @@ function StrangerThingsIntro({ onComplete }) {
         return () => clearInterval(interval)
     }, [])
 
-    // Sequence timing
+    // Sequence timing - Extended to 20 seconds
     useEffect(() => {
-        // Phase 1: Show characters after 0.5s
+        // Phase 1: Show characters after 1s (display for 6 seconds)
         const charTimer = setTimeout(() => {
             setPhase('characters')
             setShowCharacters(true)
-        }, 500)
+        }, 1000)
 
-        // Phase 2: Show title after 4s
+        // Phase 2: Show title after 7s (display for 6 seconds)
         const titleTimer = setTimeout(() => {
             setPhase('title')
             setShowCharacters(false)
             setShowTitle(true)
-        }, 4000)
+        }, 7000)
 
-        // Phase 3: Countdown after 7s
+        // Phase 3: Countdown after 13s
         const countdownTimer = setTimeout(() => {
             setPhase('countdown')
             setShowTitle(false)
-            setCountdown(3)
-        }, 7000)
+            setCountdown(5) // 5 second countdown
+        }, 13000)
 
         return () => {
             clearTimeout(charTimer)
@@ -329,19 +296,29 @@ function StrangerThingsIntro({ onComplete }) {
         }
     }, [])
 
-    // Countdown sequence
+    // Countdown sequence - 2 seconds per number with lightning
     useEffect(() => {
         if (countdown === null) return
 
+        // Flash lightning on each countdown number
         if (countdown > 0) {
-            const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+            setLightningActive(true)
+            setTimeout(() => setLightningActive(false), 150)
+            setTimeout(() => {
+                setLightningActive(true)
+                setTimeout(() => setLightningActive(false), 100)
+            }, 200)
+        }
+
+        if (countdown > 0) {
+            const timer = setTimeout(() => setCountdown(countdown - 1), 2000) // 2 seconds per number
             return () => clearTimeout(timer)
         } else if (countdown === 0) {
             const timer = setTimeout(() => {
                 setPhase('portal')
                 setPortalActive(true)
                 setTimeout(onComplete, 1500)
-            }, 1500)
+            }, 2000)
             return () => clearTimeout(timer)
         }
     }, [countdown, onComplete])
@@ -369,6 +346,15 @@ function StrangerThingsIntro({ onComplete }) {
                 animate={{ opacity: lightningActive ? 0.3 : 0 }}
                 transition={{ duration: 0.1 }}
             />
+
+            {/* Lightning Bolt Lines */}
+            {lightningActive && (
+                <div className="lightning-bolts">
+                    <div className="lightning-bolt bolt-1" key={`bolt1-${Date.now()}`}></div>
+                    <div className="lightning-bolt bolt-2" key={`bolt2-${Date.now()}`}></div>
+                    <div className="lightning-bolt bolt-3" key={`bolt3-${Date.now()}`}></div>
+                </div>
+            )}
 
             {/* Character Cards */}
             <div className="characters-container">

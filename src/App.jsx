@@ -366,26 +366,25 @@ function Scene() {
   )
 }
 
-// Audio Manager Component - Auto-plays on page load
+// Audio Manager Component - Plays Stranger Things theme
 function AudioManager({ isPlaying }) {
-  console.log(isPlaying)
-  const crackerAudioRef = useRef(null)
+  const themeAudioRef = useRef(null)
   const retryHandlersRef = useRef(null)
 
   useEffect(() => {
-    // Create audio on mount
-    if (!crackerAudioRef.current) {
-      crackerAudioRef.current = new Audio('/sounds/cracker-sound-261119.mp3')
-      crackerAudioRef.current.volume = 0.6
-      crackerAudioRef.current.loop = true
+    // Create audio on mount - use Stranger Things theme
+    if (!themeAudioRef.current) {
+      themeAudioRef.current = new Audio('/sounds/stranger-things-124008.mp3')
+      themeAudioRef.current.volume = 0.6
+      themeAudioRef.current.loop = true
     }
 
     if (isPlaying) {
       // Try to play immediately
-      crackerAudioRef.current.play().catch(() => {
+      themeAudioRef.current.play().catch(() => {
         // If blocked by browser, add listeners to retry on first interaction
         const retryPlay = () => {
-          crackerAudioRef.current?.play()
+          themeAudioRef.current?.play()
           document.removeEventListener('click', retryPlay)
           document.removeEventListener('touchstart', retryPlay)
           document.removeEventListener('keydown', retryPlay)
@@ -396,7 +395,7 @@ function AudioManager({ isPlaying }) {
         document.addEventListener('keydown', retryPlay)
       })
     } else {
-      crackerAudioRef.current.pause()
+      themeAudioRef.current.pause()
       // Clean up retry handlers if sound is disabled
       if (retryHandlersRef.current) {
         document.removeEventListener('click', retryHandlersRef.current)
@@ -411,7 +410,7 @@ function AudioManager({ isPlaying }) {
 
 function App() {
   const [showIntro, setShowIntro] = useState(true) // Show Stranger Things intro first
-  const [audioEnabled, setAudioEnabled] = useState(true) // Sound ON by default
+  const [audioEnabled, setAudioEnabled] = useState(true) // Sound OFF by default - user clicks to enable
 
   const handleIntroComplete = useCallback(() => {
     setShowIntro(false)
