@@ -365,19 +365,25 @@ function Scene() {
   )
 }
 
-// Audio Manager Component - Only Cracker Sound (Never Stops)
+// Audio Manager Component - Cracker Sound with Toggle
 function AudioManager({ isPlaying }) {
   const crackerAudioRef = useRef(null)
 
   useEffect(() => {
-    if (isPlaying && !crackerAudioRef.current) {
-      // Create and play cracker sound - loops forever
-      crackerAudioRef.current = new Audio('/sounds/cracker-sound-261119.mp3')
-      crackerAudioRef.current.volume = 0.6
-      crackerAudioRef.current.loop = true
+    if (isPlaying) {
+      // Create audio if not exists, then play
+      if (!crackerAudioRef.current) {
+        crackerAudioRef.current = new Audio('/sounds/cracker-sound-261119.mp3')
+        crackerAudioRef.current.volume = 0.6
+        crackerAudioRef.current.loop = true
+      }
       crackerAudioRef.current.play().catch(e => console.log('Audio play failed:', e))
+    } else {
+      // Pause when toggled off
+      if (crackerAudioRef.current) {
+        crackerAudioRef.current.pause()
+      }
     }
-    // Sound never stops - no cleanup needed
   }, [isPlaying])
 
   return null
