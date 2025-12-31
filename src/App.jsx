@@ -1,353 +1,478 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import Particles, { initParticlesEngine } from "@tsparticles/react"
-import { loadSlim } from "@tsparticles/slim"
-import gsap from 'gsap'
+import { Suspense, useRef, useMemo, useState, useEffect, useCallback } from 'react'
+import { Canvas, useFrame, useLoader } from '@react-three/fiber'
+import { Text3D, Center, Float, Stars, OrbitControls, useTexture } from '@react-three/drei'
+import * as THREE from 'three'
 import './App.css'
 
-function App() {
-  const [init, setInit] = useState(false)
-  const [showCard, setShowCard] = useState(false)
-  const [showTitle, setShowTitle] = useState(false)
-  const [countdown, setCountdown] = useState(3)
-  const [countdownComplete, setCountdownComplete] = useState(false)
-  const [explosions, setExplosions] = useState([])
+// Real Earth Globe Component
+function RealEarthGlobe() {
+  const earthRef = useRef()
+  const cloudsRef = useRef()
+  const glowRef = useRef()
+  const particlesRef = useRef()
 
-  // Initialize particles engine
-  useEffect(() => {
-    initParticlesEngine(async (engine) => {
-      await loadSlim(engine)
-    }).then(() => {
-      setInit(true)
-    })
+  // Load Earth textures
+  const [earthTexture, nightTexture, cloudsTexture] = useTexture([
+    '/textures/earth_daymap.jpg',
+    '/textures/earth_night.jpg',
+    '/textures/earth_clouds.png'
+  ])
+
+  // Create particle overlay for golden shimmer
+  const particles = useMemo(() => {
+    const points = []
+    const colors = []
+    const radius = 2.55
+    const particleCount = 3000
+
+    for (let i = 0; i < particleCount; i++) {
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos((Math.random() * 2) - 1)
+
+      const x = radius * Math.sin(phi) * Math.cos(theta)
+      const y = radius * Math.sin(phi) * Math.sin(theta)
+      const z = radius * Math.cos(phi)
+
+      points.push(x, y, z)
+
+      const gold = Math.random() * 0.3 + 0.7
+      colors.push(1, gold, 0.2)
+    }
+
+    return {
+      positions: new Float32Array(points),
+      colors: new Float32Array(colors)
+    }
   }, [])
 
-  // Countdown effect
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (countdown === 0 && !countdownComplete) {
-      setCountdownComplete(true)
-      setTimeout(() => setShowCard(true), 500)
-      setTimeout(() => setShowTitle(true), 1200)
+  useFrame((state) => {
+    const time = state.clock.elapsedTime
 
-      // Create multiple explosions
-      for (let i = 0; i < 8; i++) {
-        setTimeout(() => {
-          setExplosions(prev => [...prev, {
-            id: Date.now() + i,
-            x: 10 + Math.random() * 80,
-            y: 20 + Math.random() * 50
-          }])
-        }, i * 200)
-      }
+    if (earthRef.current) {
+      earthRef.current.rotation.y += 0.001
     }
-  }, [countdown, countdownComplete])
-
-  // GSAP animations for numbers
-  useEffect(() => {
-    if (showTitle) {
-      gsap.fromTo('.number-item',
-        { scale: 0, rotation: -180, opacity: 0 },
-        {
-          scale: 1,
-          rotation: 0,
-          opacity: 1,
-          duration: 0.8,
-          stagger: 0.15,
-          ease: 'elastic.out(1, 0.5)'
-        }
-      )
+    if (cloudsRef.current) {
+      cloudsRef.current.rotation.y += 0.0015
     }
-  }, [showTitle])
-
-  // Continuous explosion effect
-  useEffect(() => {
-    if (countdownComplete) {
-      const interval = setInterval(() => {
-        setExplosions(prev => [...prev.slice(-12), {
-          id: Date.now(),
-          x: 5 + Math.random() * 90,
-          y: 10 + Math.random() * 60
-        }])
-      }, 600)
-      return () => clearInterval(interval)
+    if (particlesRef.current) {
+      particlesRef.current.rotation.y += 0.001
     }
-  }, [countdownComplete])
-
-  const particlesLoaded = useCallback(async (container) => {
-    console.log('Particles loaded', container)
-  }, [])
-
-  const particlesOptions = useMemo(() => ({
-    fullScreen: { enable: true, zIndex: 0 },
-    background: {
-      color: { value: "transparent" },
-    },
-    fpsLimit: 120,
-    particles: {
-      color: {
-        value: ["#FFD700", "#FF6B9D", "#00D4FF", "#FF6B6B", "#6BCB77", "#C9B1FF", "#FFFFFF"]
-      },
-      move: {
-        direction: "bottom",
-        enable: true,
-        outModes: { default: "out" },
-        random: true,
-        speed: { min: 3, max: 8 },
-        straight: false,
-      },
-      number: {
-        density: { enable: true, area: 800 },
-        value: 150,
-      },
-      opacity: {
-        value: { min: 0.3, max: 0.9 },
-        animation: {
-          enable: true,
-          speed: 1,
-          minimumValue: 0.1,
-        }
-      },
-      shape: {
-        type: ["circle", "square", "star"],
-      },
-      size: {
-        value: { min: 2, max: 6 },
-      },
-      rotate: {
-        value: { min: 0, max: 360 },
-        animation: {
-          enable: true,
-          speed: 10,
-        }
-      },
-      tilt: {
-        enable: true,
-        value: { min: 0, max: 360 },
-        animation: {
-          enable: true,
-          speed: 30,
-        }
-      },
-      wobble: {
-        enable: true,
-        distance: 30,
-        speed: 15,
-      }
-    },
-    detectRetina: true,
-  }), [])
-
-  const letters = "HAPPY NEW YEAR".split('')
+    if (glowRef.current) {
+      glowRef.current.material.opacity = 0.15 + Math.sin(time * 2) * 0.05
+    }
+  })
 
   return (
-    <div className="celebration-container">
-      {/* Animated Background */}
-      <div className="animated-bg">
-        <div className="gradient-orb orb-1"></div>
-        <div className="gradient-orb orb-2"></div>
-        <div className="gradient-orb orb-3"></div>
-      </div>
-
-      {/* Particles */}
-      {init && countdownComplete && (
-        <Particles
-          id="tsparticles"
-          particlesLoaded={particlesLoaded}
-          options={particlesOptions}
+    <group position={[0, -0.5, 0]}>
+      {/* Outer Glow */}
+      <mesh ref={glowRef} scale={1.15}>
+        <sphereGeometry args={[2.5, 64, 64]} />
+        <meshBasicMaterial
+          color="#FFD700"
+          transparent
+          opacity={0.15}
+          side={THREE.BackSide}
         />
+      </mesh>
+
+      {/* Real Earth */}
+      <mesh ref={earthRef}>
+        <sphereGeometry args={[2.5, 64, 64]} />
+        <meshStandardMaterial
+          map={earthTexture}
+          emissiveMap={nightTexture}
+          emissive={new THREE.Color(0xffaa00)}
+          emissiveIntensity={0.8}
+          metalness={0.1}
+          roughness={0.7}
+        />
+      </mesh>
+
+      {/* Cloud Layer */}
+      <mesh ref={cloudsRef} scale={1.02}>
+        <sphereGeometry args={[2.5, 64, 64]} />
+        <meshStandardMaterial
+          map={cloudsTexture}
+          transparent
+          opacity={0.3}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Golden Particle Overlay */}
+      <points ref={particlesRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={particles.positions.length / 3}
+            array={particles.positions}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            count={particles.colors.length / 3}
+            array={particles.colors}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.02}
+          vertexColors
+          transparent
+          opacity={0.6}
+          sizeAttenuation
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+
+      {/* Atmospheric Glow Ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[2.5, 2.8, 64]} />
+        <meshBasicMaterial
+          color="#FFD700"
+          transparent
+          opacity={0.2}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+// Floating 3D Geometric Shapes
+function FloatingShape({ position, shape, color, scale = 1 }) {
+  const meshRef = useRef()
+  const rotationSpeed = useMemo(() => ({
+    x: (Math.random() - 0.5) * 0.02,
+    y: (Math.random() - 0.5) * 0.02,
+    z: (Math.random() - 0.5) * 0.02,
+  }), [])
+
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x += rotationSpeed.x
+      meshRef.current.rotation.y += rotationSpeed.y
+      meshRef.current.rotation.z += rotationSpeed.z
+    }
+  })
+
+  const geometry = useMemo(() => {
+    switch (shape) {
+      case 'icosahedron':
+        return <icosahedronGeometry args={[0.4 * scale, 0]} />
+      case 'octahedron':
+        return <octahedronGeometry args={[0.4 * scale, 0]} />
+      case 'dodecahedron':
+        return <dodecahedronGeometry args={[0.35 * scale, 0]} />
+      default:
+        return <icosahedronGeometry args={[0.4 * scale, 0]} />
+    }
+  }, [shape, scale])
+
+  return (
+    <Float
+      speed={2}
+      rotationIntensity={0.5}
+      floatIntensity={1}
+      position={position}
+    >
+      <mesh ref={meshRef}>
+        {geometry}
+        <meshStandardMaterial
+          color={color}
+          metalness={0.9}
+          roughness={0.1}
+          emissive={color}
+          emissiveIntensity={0.3}
+        />
+      </mesh>
+    </Float>
+  )
+}
+
+// 3D Firework
+function Firework({ position, color }) {
+  const pointsRef = useRef()
+  const [exploded, setExploded] = useState(false)
+  const [visible, setVisible] = useState(true)
+
+  const particles = useMemo(() => {
+    const points = []
+    const count = 150
+
+    for (let i = 0; i < count; i++) {
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos((Math.random() * 2) - 1)
+      const r = 0.01
+
+      points.push(
+        r * Math.sin(phi) * Math.cos(theta),
+        r * Math.sin(phi) * Math.sin(theta),
+        r * Math.cos(phi)
+      )
+    }
+
+    return new Float32Array(points)
+  }, [])
+
+  useEffect(() => {
+    setTimeout(() => setExploded(true), 100)
+    setTimeout(() => setVisible(false), 2500)
+  }, [])
+
+  useFrame(() => {
+    if (pointsRef.current && exploded && visible) {
+      const positions = pointsRef.current.geometry.attributes.position.array
+      for (let i = 0; i < positions.length; i += 3) {
+        const direction = new THREE.Vector3(
+          positions[i],
+          positions[i + 1],
+          positions[i + 2]
+        ).normalize()
+
+        positions[i] += direction.x * 0.06
+        positions[i + 1] += direction.y * 0.06 - 0.008
+        positions[i + 2] += direction.z * 0.06
+      }
+      pointsRef.current.geometry.attributes.position.needsUpdate = true
+      pointsRef.current.material.opacity -= 0.006
+    }
+  })
+
+  if (!visible) return null
+
+  return (
+    <points ref={pointsRef} position={position}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={particles.length / 3}
+          array={particles}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.1}
+        color={color}
+        transparent
+        opacity={1}
+        sizeAttenuation
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  )
+}
+
+// Fireworks Manager
+function FireworksManager() {
+  const [fireworks, setFireworks] = useState([])
+
+  useEffect(() => {
+    const colors = ['#FFD700', '#FF6B6B', '#00D4FF', '#FF6B9D', '#6BCB77', '#FFFFFF']
+
+    const createFirework = () => {
+      const newFirework = {
+        id: Date.now() + Math.random(),
+        position: [
+          (Math.random() - 0.5) * 12,
+          (Math.random() - 0.5) * 5,
+          (Math.random() - 0.5) * 6 - 3
+        ],
+        color: colors[Math.floor(Math.random() * colors.length)]
+      }
+      setFireworks(prev => [...prev.slice(-10), newFirework])
+    }
+
+    const interval = setInterval(createFirework, 600)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <>
+      {fireworks.map(fw => (
+        <Firework key={fw.id} position={fw.position} color={fw.color} />
+      ))}
+    </>
+  )
+}
+
+// HTML Overlay for Text
+function HtmlOverlay() {
+  return (
+    <div className="html-overlay">
+      <h1 className="title-3d">HAPPY NEW YEAR</h1>
+      <h2 className="year-3d">2026</h2>
+    </div>
+  )
+}
+
+// Main Scene
+function Scene() {
+  return (
+    <>
+      {/* Enhanced Lighting */}
+      <ambientLight intensity={0.2} />
+      <pointLight position={[10, 10, 10]} intensity={2} color="#FFD700" />
+      <pointLight position={[-10, 5, -10]} intensity={1} color="#00D4FF" />
+      <pointLight position={[0, -10, 5]} intensity={0.5} color="#FF6B9D" />
+      <spotLight
+        position={[5, 10, 5]}
+        angle={0.4}
+        penumbra={1}
+        intensity={1.5}
+        color="#FFFFFF"
+        castShadow
+      />
+
+      {/* Stars Background */}
+      <Stars
+        radius={100}
+        depth={50}
+        count={7000}
+        factor={4}
+        saturation={0}
+        fade
+        speed={1}
+      />
+
+      {/* Real Earth Globe with Textures */}
+      <Suspense fallback={null}>
+        <RealEarthGlobe />
+      </Suspense>
+
+      {/* Floating Geometric Shapes */}
+      <FloatingShape position={[-4.5, -2.5, -1]} shape="icosahedron" color="#B8860B" scale={1.8} />
+      <FloatingShape position={[-3.8, -3.2, 0.5]} shape="octahedron" color="#DAA520" scale={1.2} />
+      <FloatingShape position={[4.5, -2.5, -1]} shape="dodecahedron" color="#B8860B" scale={1.8} />
+      <FloatingShape position={[3.8, -3.2, 0.5]} shape="icosahedron" color="#DAA520" scale={1.2} />
+      <FloatingShape position={[-5, 1, -2]} shape="octahedron" color="#FFD700" scale={0.8} />
+      <FloatingShape position={[5, 1, -2]} shape="dodecahedron" color="#FFD700" scale={0.8} />
+
+      {/* Fireworks */}
+      <FireworksManager />
+
+      {/* Camera Controls */}
+      <OrbitControls
+        enableZoom={false}
+        enablePan={false}
+        autoRotate
+        autoRotateSpeed={0.3}
+        maxPolarAngle={Math.PI / 1.6}
+        minPolarAngle={Math.PI / 3}
+      />
+    </>
+  )
+}
+
+// Audio Manager Component - Using Real Audio Files
+function AudioManager({ isPlaying }) {
+  const celebrationAudioRef = useRef(null)
+  const fireworkAudioRef = useRef(null)
+  const fireworkIntervalRef = useRef(null)
+
+  useEffect(() => {
+    if (isPlaying) {
+      // Create and play celebration sound
+      if (!celebrationAudioRef.current) {
+        celebrationAudioRef.current = new Audio('/sounds/celebration.mp3')
+        celebrationAudioRef.current.volume = 0.5
+        celebrationAudioRef.current.loop = true
+        celebrationAudioRef.current.play().catch(e => console.log('Audio play failed:', e))
+      } else {
+        celebrationAudioRef.current.play().catch(e => console.log('Audio play failed:', e))
+      }
+
+      // Create firework sound effect
+      if (!fireworkAudioRef.current) {
+        fireworkAudioRef.current = new Audio('/sounds/firework.mp3')
+        fireworkAudioRef.current.volume = 0.3
+      }
+
+      // Play firework sounds periodically
+      fireworkIntervalRef.current = setInterval(() => {
+        if (fireworkAudioRef.current) {
+          const fireworkClone = fireworkAudioRef.current.cloneNode()
+          fireworkClone.volume = 0.2 + Math.random() * 0.2
+          fireworkClone.play().catch(e => console.log('Firework sound failed:', e))
+        }
+      }, 1500)
+
+    } else {
+      // Stop sounds when disabled
+      if (celebrationAudioRef.current) {
+        celebrationAudioRef.current.pause()
+      }
+      if (fireworkIntervalRef.current) {
+        clearInterval(fireworkIntervalRef.current)
+      }
+    }
+
+    return () => {
+      if (fireworkIntervalRef.current) {
+        clearInterval(fireworkIntervalRef.current)
+      }
+    }
+  }, [isPlaying])
+
+  return null
+}
+
+function App() {
+  const [audioEnabled, setAudioEnabled] = useState(false)
+  const [showOverlay] = useState(true)
+
+  const enableAudio = useCallback(() => {
+    setAudioEnabled(true)
+  }, [])
+
+  return (
+    <div className="app-container" onClick={enableAudio}>
+      <Canvas
+        camera={{ position: [0, 0, 9], fov: 55 }}
+        gl={{ antialias: true, alpha: true }}
+        style={{ background: 'linear-gradient(to bottom, #000510, #0a0a1a, #000510)' }}
+      >
+        <Suspense fallback={null}>
+          <Scene />
+        </Suspense>
+      </Canvas>
+
+      {/* Audio Manager */}
+      <AudioManager isPlaying={audioEnabled} />
+
+      {/* HTML Overlay for text */}
+      {showOverlay && <HtmlOverlay />}
+
+      {/* Sound Toggle */}
+      <button
+        className={`sound-toggle ${audioEnabled ? 'active' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          setAudioEnabled(!audioEnabled)
+        }}
+      >
+        {audioEnabled ? '🔊' : '🔇'}
+      </button>
+
+      {/* Click prompt */}
+      {!audioEnabled && (
+        <div className="click-prompt">
+          Click anywhere to enable celebration sounds! 🎵
+        </div>
       )}
 
-      {/* Firework Explosions */}
-      <AnimatePresence>
-        {explosions.map((explosion) => (
-          <motion.div
-            key={explosion.id}
-            className="explosion"
-            style={{ left: `${explosion.x}%`, top: `${explosion.y}%` }}
-            initial={{ scale: 0, opacity: 1 }}
-            animate={{ scale: 3, opacity: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
-          >
-            {[...Array(16)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="explosion-particle"
-                style={{
-                  '--angle': `${i * 22.5}deg`,
-                  '--color': ['#FFD700', '#FF6B9D', '#00D4FF', '#FF6B6B', '#6BCB77'][i % 5]
-                }}
-                initial={{ scale: 1, x: 0, y: 0 }}
-                animate={{
-                  x: Math.cos(i * 22.5 * Math.PI / 180) * 120,
-                  y: Math.sin(i * 22.5 * Math.PI / 180) * 120,
-                  scale: 0,
-                  opacity: 0
-                }}
-                transition={{ duration: 1.2, ease: "easeOut" }}
-              />
-            ))}
-          </motion.div>
-        ))}
-      </AnimatePresence>
-
-      {/* Countdown */}
-      <AnimatePresence>
-        {countdown > 0 && (
-          <motion.div
-            className="countdown"
-            key={countdown}
-            initial={{ scale: 0, opacity: 0, rotateY: -180 }}
-            animate={{ scale: 1, opacity: 1, rotateY: 0 }}
-            exit={{ scale: 2, opacity: 0, rotateY: 180 }}
-            transition={{ duration: 0.5, ease: "backOut" }}
-          >
-            {countdown}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Card */}
-      <AnimatePresence>
-        {showCard && (
-          <motion.div
-            className="celebration-card"
-            initial={{ scale: 0, rotateX: 90, opacity: 0 }}
-            animate={{ scale: 1, rotateX: 0, opacity: 1 }}
-            transition={{
-              type: "spring",
-              stiffness: 200,
-              damping: 20,
-              duration: 1
-            }}
-          >
-            {/* Glow Effect */}
-            <div className="card-glow"></div>
-            <div className="card-sparkles">
-              {[...Array(20)].map((_, i) => (
-                <div key={i} className="sparkle" style={{
-                  '--delay': `${Math.random() * 3}s`,
-                  '--x': `${Math.random() * 100}%`,
-                  '--y': `${Math.random() * 100}%`,
-                  '--size': `${4 + Math.random() * 8}px`
-                }} />
-              ))}
-            </div>
-
-            {/* Year Transition */}
-            <motion.div
-              className="year-transition"
-              initial={{ opacity: 0, y: -30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.8 }}
-            >
-              <span className="old-year">2025</span>
-              <motion.span
-                className="arrow"
-                animate={{ x: [0, 10, 0] }}
-                transition={{ repeat: Infinity, duration: 1.5 }}
-              >
-                ✦
-              </motion.span>
-              <span className="new-year">2026</span>
-            </motion.div>
-
-            {/* Animated Title */}
-            {showTitle && (
-              <motion.div className="main-title">
-                {letters.map((letter, i) => (
-                  <motion.span
-                    key={i}
-                    className="title-letter"
-                    initial={{ opacity: 0, y: 50, rotateX: -90 }}
-                    animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                    transition={{
-                      delay: i * 0.06,
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 15
-                    }}
-                  >
-                    {letter === ' ' ? '\u00A0' : letter}
-                  </motion.span>
-                ))}
-              </motion.div>
-            )}
-
-            {/* Big Year Display */}
-            {showTitle && (
-              <div className="big-year">
-                <span className="number-item">2</span>
-                <span className="number-item">0</span>
-                <span className="number-item">2</span>
-                <span className="number-item">6</span>
-              </div>
-            )}
-
-            {/* Subtitle */}
-            <motion.p
-              className="subtitle"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2, duration: 1 }}
-            >
-              ✨ Wishing you a year filled with magic, success & endless joy! ✨
-            </motion.p>
-
-            {/* Decorative Elements */}
-            <div className="decorations">
-              <motion.span
-                className="deco deco-1"
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
-              >🎆</motion.span>
-              <motion.span
-                className="deco deco-2"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-              >🎊</motion.span>
-              <motion.span
-                className="deco deco-3"
-                animate={{ rotate: -360 }}
-                transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
-              >🎇</motion.span>
-              <motion.span
-                className="deco deco-4"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
-              >🥂</motion.span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Bottom Celebration */}
-      {showCard && (
-        <motion.div
-          className="bottom-celebration"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 2.5, duration: 0.8 }}
-        >
-          {['🎉', '🎊', '✨', '🎆', '🥂', '🎇', '✨', '🎊', '🎉'].map((emoji, i) => (
-            <motion.span
-              key={i}
-              animate={{ y: [0, -20, 0] }}
-              transition={{
-                repeat: Infinity,
-                duration: 1.5,
-                delay: i * 0.15,
-                ease: "easeInOut"
-              }}
-            >
-              {emoji}
-            </motion.span>
-          ))}
-        </motion.div>
-      )}
+      {/* Bottom Message */}
+      <div className="bottom-message">
+        <p>✨ Wishing you a year filled with magic, success & endless joy! ✨</p>
+        <div className="emoji-row">
+          <span>🎆</span>
+          <span>🎊</span>
+          <span>🌍</span>
+          <span>🥂</span>
+          <span>🎇</span>
+        </div>
+      </div>
     </div>
   )
 }
