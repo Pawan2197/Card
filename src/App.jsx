@@ -365,54 +365,19 @@ function Scene() {
   )
 }
 
-// Audio Manager Component - Using Real Audio Files
+// Audio Manager Component - Only Cracker Sound (Never Stops)
 function AudioManager({ isPlaying }) {
-  const celebrationAudioRef = useRef(null)
-  const fireworkAudioRef = useRef(null)
-  const fireworkIntervalRef = useRef(null)
+  const crackerAudioRef = useRef(null)
 
   useEffect(() => {
-    if (isPlaying) {
-      // Create and play celebration sound
-      if (!celebrationAudioRef.current) {
-        celebrationAudioRef.current = new Audio('/sounds/celebration.mp3')
-        celebrationAudioRef.current.volume = 0.5
-        celebrationAudioRef.current.loop = true
-        celebrationAudioRef.current.play().catch(e => console.log('Audio play failed:', e))
-      } else {
-        celebrationAudioRef.current.play().catch(e => console.log('Audio play failed:', e))
-      }
-
-      // Create firework sound effect
-      if (!fireworkAudioRef.current) {
-        fireworkAudioRef.current = new Audio('/sounds/firework.mp3')
-        fireworkAudioRef.current.volume = 0.3
-      }
-
-      // Play firework sounds periodically
-      fireworkIntervalRef.current = setInterval(() => {
-        if (fireworkAudioRef.current) {
-          const fireworkClone = fireworkAudioRef.current.cloneNode()
-          fireworkClone.volume = 0.2 + Math.random() * 0.2
-          fireworkClone.play().catch(e => console.log('Firework sound failed:', e))
-        }
-      }, 1500)
-
-    } else {
-      // Stop sounds when disabled
-      if (celebrationAudioRef.current) {
-        celebrationAudioRef.current.pause()
-      }
-      if (fireworkIntervalRef.current) {
-        clearInterval(fireworkIntervalRef.current)
-      }
+    if (isPlaying && !crackerAudioRef.current) {
+      // Create and play cracker sound - loops forever
+      crackerAudioRef.current = new Audio('/sounds/cracker-sound-261119.mp3')
+      crackerAudioRef.current.volume = 0.6
+      crackerAudioRef.current.loop = true
+      crackerAudioRef.current.play().catch(e => console.log('Audio play failed:', e))
     }
-
-    return () => {
-      if (fireworkIntervalRef.current) {
-        clearInterval(fireworkIntervalRef.current)
-      }
-    }
+    // Sound never stops - no cleanup needed
   }, [isPlaying])
 
   return null
