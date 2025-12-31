@@ -417,9 +417,19 @@ function WelcomeScreen({ onStart }) {
 }
 
 function App() {
+  // Responsive camera position - moved to top to avoid hook order errors
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const [hasStarted, setHasStarted] = useState(false) // Gate the experience
   const [showIntro, setShowIntro] = useState(true)
   const [audioEnabled, setAudioEnabled] = useState(true)
+
 
   const { startAudio } = useGlobalAudio()
 
@@ -455,11 +465,13 @@ function App() {
     return <StrangerThingsIntro onComplete={handleIntroComplete} />
   }
 
+
+
   // New Year Celebration
   return (
     <div className="app-container">
       <Canvas
-        camera={{ position: [0, 0, 9], fov: 55 }}
+        camera={{ position: [0, 0, isMobile ? 13.5 : 6.5], fov: 55 }}
         gl={{ antialias: true, alpha: true }}
         style={{ background: 'linear-gradient(to bottom, #000510, #0a0a1a, #000510)' }}
       >

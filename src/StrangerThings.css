@@ -6,7 +6,8 @@
     top: 0;
     left: 0;
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
+    /* Use dvh for mobile browsers */
     overflow: hidden;
     z-index: 9999;
 }
@@ -427,13 +428,17 @@
 
 @media (max-width: 600px) {
     .character-card {
-        width: 150px;
-        height: 220px;
+        width: 140px;
+        height: 190px;
+    }
+
+    .characters-container {
+        gap: 10px;
     }
 
     .character-name {
-        font-size: 0.9rem;
-        padding: 10px;
+        font-size: 0.8rem;
+        padding: 5px;
     }
 
     .main-title {
@@ -448,5 +453,38 @@
     .countdown-number {
         font-size: 5rem;
         -webkit-text-stroke: 2px #ff0000;
+    }
+
+    .countdown-container {
+        width: auto;
+        max-width: 90vw;
+        /* Prevent overflow but don't force width */
+        left: 40%;
+        /* Shift significantly left */
+    }
+
+    .skip-button {
+        bottom: 20px;
+        /* Lowest point */
+        bottom: max(20px, env(safe-area-inset-bottom));
+        /* Respect safe area */
+        padding: 10px 20px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Small mobile screens (iPhone SE, etc) */
+@media (max-height: 700px) {
+    .character-card {
+        width: 120px;
+        height: 160px;
+    }
+
+    .characters-container {
+        gap: 8px;
+    }
+
+    .main-title {
+        font-size: 1.8rem;
     }
 }
