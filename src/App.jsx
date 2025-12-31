@@ -1,169 +1,353 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import Particles, { initParticlesEngine } from "@tsparticles/react"
+import { loadSlim } from "@tsparticles/slim"
+import gsap from 'gsap'
 import './App.css'
 
 function App() {
-  const [showMessage, setShowMessage] = useState(false)
-  const [fireworks, setFireworks] = useState([])
-  const [confetti, setConfetti] = useState([])
+  const [init, setInit] = useState(false)
+  const [showCard, setShowCard] = useState(false)
+  const [showTitle, setShowTitle] = useState(false)
+  const [countdown, setCountdown] = useState(3)
+  const [countdownComplete, setCountdownComplete] = useState(false)
+  const [explosions, setExplosions] = useState([])
 
-  // Generate confetti particles
+  // Initialize particles engine
   useEffect(() => {
-    const particles = []
-    for (let i = 0; i < 150; i++) {
-      particles.push({
-        id: i,
-        left: Math.random() * 100,
-        animationDelay: Math.random() * 5,
-        animationDuration: 3 + Math.random() * 4,
-        color: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6bd6', '#c9b1ff', '#fff'][Math.floor(Math.random() * 7)],
-        size: 5 + Math.random() * 10
-      })
-    }
-    setConfetti(particles)
+    initParticlesEngine(async (engine) => {
+      await loadSlim(engine)
+    }).then(() => {
+      setInit(true)
+    })
   }, [])
 
-  // Generate fireworks
+  // Countdown effect
   useEffect(() => {
-    const createFirework = () => {
-      const newFirework = {
-        id: Date.now() + Math.random(),
-        left: 10 + Math.random() * 80,
-        bottom: 20 + Math.random() * 40,
-        color: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6bd6', '#fff'][Math.floor(Math.random() * 6)]
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    } else if (countdown === 0 && !countdownComplete) {
+      setCountdownComplete(true)
+      setTimeout(() => setShowCard(true), 500)
+      setTimeout(() => setShowTitle(true), 1200)
+
+      // Create multiple explosions
+      for (let i = 0; i < 8; i++) {
+        setTimeout(() => {
+          setExplosions(prev => [...prev, {
+            id: Date.now() + i,
+            x: 10 + Math.random() * 80,
+            y: 20 + Math.random() * 50
+          }])
+        }, i * 200)
       }
-      setFireworks(prev => [...prev.slice(-8), newFirework])
     }
+  }, [countdown, countdownComplete])
 
-    const interval = setInterval(createFirework, 800)
-    return () => clearInterval(interval)
-  }, [])
-
-  // Animate message appearance
+  // GSAP animations for numbers
   useEffect(() => {
-    const timer = setTimeout(() => setShowMessage(true), 500)
-    return () => clearTimeout(timer)
+    if (showTitle) {
+      gsap.fromTo('.number-item',
+        { scale: 0, rotation: -180, opacity: 0 },
+        {
+          scale: 1,
+          rotation: 0,
+          opacity: 1,
+          duration: 0.8,
+          stagger: 0.15,
+          ease: 'elastic.out(1, 0.5)'
+        }
+      )
+    }
+  }, [showTitle])
+
+  // Continuous explosion effect
+  useEffect(() => {
+    if (countdownComplete) {
+      const interval = setInterval(() => {
+        setExplosions(prev => [...prev.slice(-12), {
+          id: Date.now(),
+          x: 5 + Math.random() * 90,
+          y: 10 + Math.random() * 60
+        }])
+      }, 600)
+      return () => clearInterval(interval)
+    }
+  }, [countdownComplete])
+
+  const particlesLoaded = useCallback(async (container) => {
+    console.log('Particles loaded', container)
   }, [])
+
+  const particlesOptions = useMemo(() => ({
+    fullScreen: { enable: true, zIndex: 0 },
+    background: {
+      color: { value: "transparent" },
+    },
+    fpsLimit: 120,
+    particles: {
+      color: {
+        value: ["#FFD700", "#FF6B9D", "#00D4FF", "#FF6B6B", "#6BCB77", "#C9B1FF", "#FFFFFF"]
+      },
+      move: {
+        direction: "bottom",
+        enable: true,
+        outModes: { default: "out" },
+        random: true,
+        speed: { min: 3, max: 8 },
+        straight: false,
+      },
+      number: {
+        density: { enable: true, area: 800 },
+        value: 150,
+      },
+      opacity: {
+        value: { min: 0.3, max: 0.9 },
+        animation: {
+          enable: true,
+          speed: 1,
+          minimumValue: 0.1,
+        }
+      },
+      shape: {
+        type: ["circle", "square", "star"],
+      },
+      size: {
+        value: { min: 2, max: 6 },
+      },
+      rotate: {
+        value: { min: 0, max: 360 },
+        animation: {
+          enable: true,
+          speed: 10,
+        }
+      },
+      tilt: {
+        enable: true,
+        value: { min: 0, max: 360 },
+        animation: {
+          enable: true,
+          speed: 30,
+        }
+      },
+      wobble: {
+        enable: true,
+        distance: 30,
+        speed: 15,
+      }
+    },
+    detectRetina: true,
+  }), [])
+
+  const letters = "HAPPY NEW YEAR".split('')
 
   return (
     <div className="celebration-container">
-      {/* Animated Background Gradient */}
-      <div className="background-gradient"></div>
-
-      {/* Stars */}
-      <div className="stars">
-        {[...Array(50)].map((_, i) => (
-          <div
-            key={i}
-            className="star"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              '--size': `${2 + Math.random() * 3}px`
-            }}
-          />
-        ))}
+      {/* Animated Background */}
+      <div className="animated-bg">
+        <div className="gradient-orb orb-1"></div>
+        <div className="gradient-orb orb-2"></div>
+        <div className="gradient-orb orb-3"></div>
       </div>
 
-      {/* Confetti */}
-      <div className="confetti-container">
-        {confetti.map(particle => (
-          <div
-            key={particle.id}
-            className="confetti"
-            style={{
-              left: `${particle.left}%`,
-              animationDelay: `${particle.animationDelay}s`,
-              animationDuration: `${particle.animationDuration}s`,
-              backgroundColor: particle.color,
-              width: `${particle.size}px`,
-              height: `${particle.size}px`
-            }}
-          />
-        ))}
-      </div>
+      {/* Particles */}
+      {init && countdownComplete && (
+        <Particles
+          id="tsparticles"
+          particlesLoaded={particlesLoaded}
+          options={particlesOptions}
+        />
+      )}
 
-      {/* Fireworks */}
-      <div className="fireworks-container">
-        {fireworks.map(fw => (
-          <div
-            key={fw.id}
-            className="firework"
-            style={{
-              left: `${fw.left}%`,
-              bottom: `${fw.bottom}%`,
-              '--fw-color': fw.color
-            }}
+      {/* Firework Explosions */}
+      <AnimatePresence>
+        {explosions.map((explosion) => (
+          <motion.div
+            key={explosion.id}
+            className="explosion"
+            style={{ left: `${explosion.x}%`, top: `${explosion.y}%` }}
+            initial={{ scale: 0, opacity: 1 }}
+            animate={{ scale: 3, opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
           >
-            {[...Array(12)].map((_, i) => (
-              <div
+            {[...Array(16)].map((_, i) => (
+              <motion.div
                 key={i}
-                className="firework-particle"
-                style={{ '--angle': `${i * 30}deg` }}
+                className="explosion-particle"
+                style={{
+                  '--angle': `${i * 22.5}deg`,
+                  '--color': ['#FFD700', '#FF6B9D', '#00D4FF', '#FF6B6B', '#6BCB77'][i % 5]
+                }}
+                initial={{ scale: 1, x: 0, y: 0 }}
+                animate={{
+                  x: Math.cos(i * 22.5 * Math.PI / 180) * 120,
+                  y: Math.sin(i * 22.5 * Math.PI / 180) * 120,
+                  scale: 0,
+                  opacity: 0
+                }}
+                transition={{ duration: 1.2, ease: "easeOut" }}
               />
             ))}
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </AnimatePresence>
+
+      {/* Countdown */}
+      <AnimatePresence>
+        {countdown > 0 && (
+          <motion.div
+            className="countdown"
+            key={countdown}
+            initial={{ scale: 0, opacity: 0, rotateY: -180 }}
+            animate={{ scale: 1, opacity: 1, rotateY: 0 }}
+            exit={{ scale: 2, opacity: 0, rotateY: 180 }}
+            transition={{ duration: 0.5, ease: "backOut" }}
+          >
+            {countdown}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Card */}
-      <div className={`celebration-card ${showMessage ? 'show' : ''}`}>
-        <div className="card-glow"></div>
+      <AnimatePresence>
+        {showCard && (
+          <motion.div
+            className="celebration-card"
+            initial={{ scale: 0, rotateX: 90, opacity: 0 }}
+            animate={{ scale: 1, rotateX: 0, opacity: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 200,
+              damping: 20,
+              duration: 1
+            }}
+          >
+            {/* Glow Effect */}
+            <div className="card-glow"></div>
+            <div className="card-sparkles">
+              {[...Array(20)].map((_, i) => (
+                <div key={i} className="sparkle" style={{
+                  '--delay': `${Math.random() * 3}s`,
+                  '--x': `${Math.random() * 100}%`,
+                  '--y': `${Math.random() * 100}%`,
+                  '--size': `${4 + Math.random() * 8}px`
+                }} />
+              ))}
+            </div>
 
-        {/* Decorative elements */}
-        <div className="decoration-top-left">✨</div>
-        <div className="decoration-top-right">🎆</div>
-        <div className="decoration-bottom-left">🎇</div>
-        <div className="decoration-bottom-right">✨</div>
+            {/* Year Transition */}
+            <motion.div
+              className="year-transition"
+              initial={{ opacity: 0, y: -30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.8 }}
+            >
+              <span className="old-year">2025</span>
+              <motion.span
+                className="arrow"
+                animate={{ x: [0, 10, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+              >
+                ✦
+              </motion.span>
+              <span className="new-year">2026</span>
+            </motion.div>
 
-        {/* Year Display */}
-        <div className="year-display">
-          <span className="year-old">2024</span>
-          <span className="year-arrow">→</span>
-          <span className="year-new">2025</span>
-        </div>
+            {/* Animated Title */}
+            {showTitle && (
+              <motion.div className="main-title">
+                {letters.map((letter, i) => (
+                  <motion.span
+                    key={i}
+                    className="title-letter"
+                    initial={{ opacity: 0, y: 50, rotateX: -90 }}
+                    animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                    transition={{
+                      delay: i * 0.06,
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 15
+                    }}
+                  >
+                    {letter === ' ' ? '\u00A0' : letter}
+                  </motion.span>
+                ))}
+              </motion.div>
+            )}
 
-        {/* Main Message */}
-        <h1 className="main-title">
-          <span className="title-word">Happy</span>
-          <span className="title-word">New</span>
-          <span className="title-word">Year!</span>
-        </h1>
+            {/* Big Year Display */}
+            {showTitle && (
+              <div className="big-year">
+                <span className="number-item">2</span>
+                <span className="number-item">0</span>
+                <span className="number-item">2</span>
+                <span className="number-item">6</span>
+              </div>
+            )}
 
-        {/* Subtitle */}
-        <p className="subtitle">
-          Wishing you a year filled with joy, success, and endless possibilities!
-        </p>
+            {/* Subtitle */}
+            <motion.p
+              className="subtitle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 2, duration: 1 }}
+            >
+              ✨ Wishing you a year filled with magic, success & endless joy! ✨
+            </motion.p>
 
-        {/* Animated divider */}
-        <div className="divider">
-          <span className="divider-star">⭐</span>
-        </div>
+            {/* Decorative Elements */}
+            <div className="decorations">
+              <motion.span
+                className="deco deco-1"
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+              >🎆</motion.span>
+              <motion.span
+                className="deco deco-2"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+              >🎊</motion.span>
+              <motion.span
+                className="deco deco-3"
+                animate={{ rotate: -360 }}
+                transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+              >🎇</motion.span>
+              <motion.span
+                className="deco deco-4"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
+              >🥂</motion.span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* Greeting Message */}
-        <div className="greeting-box">
-          <p className="greeting-text">
-            May all your dreams come true and every moment be magical!
-            Here's to new beginnings, new adventures, and new memories! 🎉
-          </p>
-        </div>
-
-        {/* Countdown style numbers */}
-        <div className="celebration-numbers">
-          <span>2</span>
-          <span>0</span>
-          <span>2</span>
-          <span>5</span>
-        </div>
-      </div>
-
-      {/* Bottom decoration */}
-      <div className="bottom-decoration">
-        <span>🎊</span>
-        <span>🥂</span>
-        <span>🎉</span>
-        <span>🎊</span>
-      </div>
+      {/* Bottom Celebration */}
+      {showCard && (
+        <motion.div
+          className="bottom-celebration"
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2.5, duration: 0.8 }}
+        >
+          {['🎉', '🎊', '✨', '🎆', '🥂', '🎇', '✨', '🎊', '🎉'].map((emoji, i) => (
+            <motion.span
+              key={i}
+              animate={{ y: [0, -20, 0] }}
+              transition={{
+                repeat: Infinity,
+                duration: 1.5,
+                delay: i * 0.15,
+                ease: "easeInOut"
+              }}
+            >
+              {emoji}
+            </motion.span>
+          ))}
+        </motion.div>
+      )}
     </div>
   )
 }
