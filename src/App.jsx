@@ -2,6 +2,7 @@ import { Suspense, useRef, useMemo, useState, useEffect, useCallback } from 'rea
 import { Canvas, useFrame, useLoader } from '@react-three/fiber'
 import { Text3D, Center, Float, Stars, OrbitControls, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
+import StrangerThingsIntro from './StrangerThings'
 import './App.css'
 
 // Real Earth Globe Component
@@ -367,6 +368,7 @@ function Scene() {
 
 // Audio Manager Component - Auto-plays on page load
 function AudioManager({ isPlaying }) {
+  console.log(isPlaying)
   const crackerAudioRef = useRef(null)
   const retryHandlersRef = useRef(null)
 
@@ -408,8 +410,19 @@ function AudioManager({ isPlaying }) {
 }
 
 function App() {
+  const [showIntro, setShowIntro] = useState(true) // Show Stranger Things intro first
   const [audioEnabled, setAudioEnabled] = useState(true) // Sound ON by default
 
+  const handleIntroComplete = useCallback(() => {
+    setShowIntro(false)
+  }, [])
+
+  // Stranger Things intro
+  if (showIntro) {
+    return <StrangerThingsIntro onComplete={handleIntroComplete} />
+  }
+
+  // New Year Celebration
   return (
     <div className="app-container">
       <Canvas
