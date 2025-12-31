@@ -365,23 +365,41 @@ function Scene() {
   )
 }
 
-// Audio Manager Component - Cracker Sound with Toggle
+// Audio Manager Component - Auto-plays on page load
 function AudioManager({ isPlaying }) {
   const crackerAudioRef = useRef(null)
+  const retryHandlersRef = useRef(null)
 
   useEffect(() => {
+    // Create audio on mount
+    if (!crackerAudioRef.current) {
+      crackerAudioRef.current = new Audio('/sounds/cracker-sound-261119.mp3')
+      crackerAudioRef.current.volume = 0.6
+      crackerAudioRef.current.loop = true
+    }
+
     if (isPlaying) {
-      // Create audio if not exists, then play
-      if (!crackerAudioRef.current) {
-        crackerAudioRef.current = new Audio('/sounds/cracker-sound-261119.mp3')
-        crackerAudioRef.current.volume = 0.6
-        crackerAudioRef.current.loop = true
-      }
-      crackerAudioRef.current.play().catch(e => console.log('Audio play failed:', e))
+      // Try to play immediately
+      crackerAudioRef.current.play().catch(() => {
+        // If blocked by browser, add listeners to retry on first interaction
+        const retryPlay = () => {
+          crackerAudioRef.current?.play()
+          document.removeEventListener('click', retryPlay)
+          document.removeEventListener('touchstart', retryPlay)
+          document.removeEventListener('keydown', retryPlay)
+        }
+        retryHandlersRef.current = retryPlay
+        document.addEventListener('click', retryPlay)
+        document.addEventListener('touchstart', retryPlay)
+        document.addEventListener('keydown', retryPlay)
+      })
     } else {
-      // Pause when toggled off
-      if (crackerAudioRef.current) {
-        crackerAudioRef.current.pause()
+      crackerAudioRef.current.pause()
+      // Clean up retry handlers if sound is disabled
+      if (retryHandlersRef.current) {
+        document.removeEventListener('click', retryHandlersRef.current)
+        document.removeEventListener('touchstart', retryHandlersRef.current)
+        document.removeEventListener('keydown', retryHandlersRef.current)
       }
     }
   }, [isPlaying])
@@ -390,15 +408,10 @@ function AudioManager({ isPlaying }) {
 }
 
 function App() {
-  const [audioEnabled, setAudioEnabled] = useState(false)
-  const [showOverlay] = useState(true)
-
-  const enableAudio = useCallback(() => {
-    setAudioEnabled(true)
-  }, [])
+  const [audioEnabled, setAudioEnabled] = useState(true) // Sound ON by default
 
   return (
-    <div className="app-container" onClick={enableAudio}>
+    <div className="app-container">
       <Canvas
         camera={{ position: [0, 0, 9], fov: 55 }}
         gl={{ antialias: true, alpha: true }}
@@ -409,29 +422,19 @@ function App() {
         </Suspense>
       </Canvas>
 
-      {/* Audio Manager */}
+      {/* Audio Manager - tries to auto-play, will play on first click if blocked */}
       <AudioManager isPlaying={audioEnabled} />
 
       {/* HTML Overlay for text */}
-      {showOverlay && <HtmlOverlay />}
+      <HtmlOverlay />
 
-      {/* Sound Toggle */}
+      {/* Sound Toggle - ON/OFF button */}
       <button
         className={`sound-toggle ${audioEnabled ? 'active' : ''}`}
-        onClick={(e) => {
-          e.stopPropagation()
-          setAudioEnabled(!audioEnabled)
-        }}
+        onClick={() => setAudioEnabled(!audioEnabled)}
       >
         {audioEnabled ? '🔊' : '🔇'}
       </button>
-
-      {/* Click prompt */}
-      {!audioEnabled && (
-        <div className="click-prompt">
-          Click anywhere to enable celebration sounds! 🎵
-        </div>
-      )}
 
       {/* Bottom Message */}
       <div className="bottom-message">
